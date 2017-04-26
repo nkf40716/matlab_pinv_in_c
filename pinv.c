@@ -1,23 +1,47 @@
 #include <stdlib.h>
 
+#ifndef max
+#define max(x,y) ((x)>(y)?(x):(y))
+#endif
+
 extern int dsvd(float **a, int m, int n, float *w, float **v);
+
+// eps(x) for single input
+static double eps(double x)
+{
+	double r;
+	int exponent;
+
+	if (x < 0.0) 
+		x = -x;
+	if (x != x)	// test if x is Not-a-Number
+		return x;
+	
+	if (x <= 1.17549435E-38F) 
+		r = 1.4013E-45F;
+	else {
+		r = frexp(x, &exponent);
+		r = ldexp(1.0, exponent - 24);
+    }
+	return r;
+}
 
 // *   m = row dimension of a
 // *   n = column dimension of a
 // Output: X
-void pinv(float *a, int m, int n, float *X)
+void pinv(double *a, int m, int n, double *X)
 {
-	int i, j, k, pos = 0;
-	float t;
-	float *w, *v_mem;
-	float **v, **ppa, **pX;
-	float *mem, **ppmem;
+	int i, j, k, r1, pos = 0;
+	double t, norm;
+	double *w, *v_mem;
+	double **v, **ppa, **pX;
+	double *mem, **ppmem;
 
-	mem = (float *)malloc(sizeof(float) * (m + m * n));
+	mem = (double *)malloc(sizeof(double) * (m + m * n));
 	w     = mem;
 	v_mem = mem + m;
 
-	ppmem = (float **)malloc(sizeof(float *) * m * 3);
+	ppmem = (double **)malloc(sizeof(double *) * m * 3);
 	v   = ppmem + pos, pos += m;
 	ppa = ppmem + pos, pos += m;
 	pX  = ppmem + pos, pos += m;
@@ -28,9 +52,22 @@ void pinv(float *a, int m, int n, float *X)
 		pX[i]  = &X[i * n];
 	}
 
-	// Singular Value Decomposition
 	dsvd(ppa, m, n, w, v);
 
+	// norm(w, inf)
+	norm = (w[0] < 0) ? (-w[0]) : (w[0]);
+	for (i = 1; i < m; ++i) {
+		t = (w[i] < 0) ? (-w[i]) : (w[i]); 
+		if (t > norm) norm = t;
+	}
+	
+	// t = tolerance, any singular values less than a tolerance are treated as zero
+	t = max(m, n) * eps(norm);
+	for (i = 0, r1 = 0; i < m; ++i) {
+		if (t > w[i])
+			++r1;
+	}	
+	
 	// swap for match the format in matlab
 	for (i = 0, j = m-1; i < (m >> 1); ++i, --j) {
 		t = w[i];
@@ -47,20 +84,16 @@ void pinv(float *a, int m, int n, float *X)
 			v[k][j] = t;
 		}
 	}
-
-// 	for (i = 0; i < m; ++i) {
-// 		float wt = (w[i] < 0) ? (-w[i]) : (w[i]);
-// 		if (wt > tol) tol = wt;		// find eps(norm(s,inf))
 	 
-	for (i = 0; i < m; ++i) {
+	for (i = 0; i < (m - r1); ++i) {
 		for (j = 0; j < n; ++j)
 			v[j][i] *= w[i];	// bsxfun(@times,V,s.')
 	}
 
 	for (i = 0; i < m; ++i) {
 		for (j = 0; j < n; ++j) {
-			float sum = 0;
-			for (k = 0; k < n; ++k)
+			double sum = 0;
+			for (k = 0; k < (m - r1); ++k)
 				sum += v[i][k] * ppa[j][k];
 			pX[i][j] = sum;
 		}
