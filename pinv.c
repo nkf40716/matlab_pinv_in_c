@@ -67,23 +67,6 @@ void pinv(double *a, int m, int n, double *X)
 		if (t > w[i])
 			++r1;
 	}	
-	
-	// swap for match the format in matlab
-	for (i = 0, j = m-1; i < (m >> 1); ++i, --j) {
-		t = w[i];
-		w[i] = 1 / w[j];
-		w[j] = 1 / t;		// s = 1./s
-	}
-	for (k = 0; k < n; ++k) {
-		for (i = 0, j = m-1; i < (m >> 1); ++i, --j) {
-			t = ppa[k][i];
-			ppa[k][i] = ppa[k][j];
-			ppa[k][j] = t;
-			t = v[k][i];
-			v[k][i] = v[k][j];
-			v[k][j] = t;
-		}
-	}
 	 
 	for (i = 0; i < (m - r1); ++i) {
 		for (j = 0; j < n; ++j)
